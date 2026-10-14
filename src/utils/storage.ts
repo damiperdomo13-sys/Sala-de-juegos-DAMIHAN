@@ -219,13 +219,13 @@ export const createInitialUserProfile = (username: string, displayName?: string)
 });
 
 export const ROULETTE_SECTORS: RouletteSector[] = [
-  { id: 'sec-1', minutes: 0, label: 'Vuelve a intentar', color: '#334155', textColor: '#f8fafc', weight: 20 },
-  { id: 'sec-2', minutes: 0, label: 'Vuelve a intentar', color: '#1e293b', textColor: '#cbd5e1', weight: 20 },
-  { id: 'sec-3', minutes: 5, label: '+5 Minutos', color: '#065f46', textColor: '#a7f3d0', weight: 20 },
-  { id: 'sec-4', minutes: 10, label: '+10 Minutos', color: '#0284c7', textColor: '#ffffff', weight: 15 },
-  { id: 'sec-5', minutes: 15, label: '+15 Minutos', color: '#0d9488', textColor: '#ccfbf1', weight: 12 },
-  { id: 'sec-6', minutes: 20, label: '+20 Minutos', color: '#10b981', textColor: '#ffffff', weight: 8 },
-  { id: 'sec-7', minutes: 30, label: '+30 Minutos', color: '#6366f1', textColor: '#e0e7ff', weight: 4 },
+  { id: 'sec-1', minutes: 0, label: 'Vuelve a intentar', color: '#1e293b', textColor: '#94a3b8', weight: 23 },
+  { id: 'sec-2', minutes: 5, label: '+5 Minutos', color: '#0284c7', textColor: '#ffffff', weight: 5 },
+  { id: 'sec-3', minutes: 2, label: '+2 Minutos', color: '#059669', textColor: '#ffffff', weight: 19 },
+  { id: 'sec-4', minutes: 5, label: '+5 Minutos', color: '#0369a1', textColor: '#ffffff', weight: 5 },
+  { id: 'sec-5', minutes: 0, label: 'Vuelve a intentar', color: '#334155', textColor: '#cbd5e1', weight: 23 },
+  { id: 'sec-6', minutes: 2, label: '+2 Minutos', color: '#047857', textColor: '#ffffff', weight: 19 },
+  { id: 'sec-7', minutes: 15, label: '+15 Minutos', color: '#7c3aed', textColor: '#ffffff', weight: 5 },
   { id: 'sec-8', minutes: 100, label: '+100 Minutos', color: '#f59e0b', textColor: '#0f172a', weight: 1 },
 ];
 
@@ -254,8 +254,8 @@ export const INITIAL_TASKS: RewardTask[] = [
   {
     id: 'task-4',
     title: 'Invitar a un amigo a jugar',
-    description: 'Comparte tu código de recluta con amigos de la sala para ganar minutos.',
-    minutes: 25,
+    description: 'Comparte tu enlace. Gana +20 minutos con su primer check-in en sala.',
+    minutes: 20,
     iconType: 'referral',
     completed: false,
     claimable: true,
@@ -317,7 +317,9 @@ export const loadStoredTasks = (): RewardTask[] => {
     const raw = localStorage.getItem(STORAGE_KEYS.TASKS);
     if (raw) {
       const parsed: RewardTask[] = JSON.parse(raw);
-      const valid = parsed.filter((t) => !['task-1', 'task-3', 'task-5'].includes(t.id));
+      const valid = parsed
+        .filter((t) => !['task-1', 'task-3', 'task-5'].includes(t.id))
+        .map((t) => (t.id === 'task-4' ? { ...t, minutes: 20, completed: false, claimable: true } : t));
       if (valid.length > 0) return valid;
     }
   } catch (e) {
@@ -408,6 +410,15 @@ export const saveLastSpinDate = (dateStr: string) => {
     localStorage.setItem(STORAGE_KEYS.LAST_SPIN_DATE, dateStr);
   } catch (e) {
     console.error('Error saving spin date', e);
+  }
+};
+
+export const clearLastSpinTimestamp = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.LAST_SPIN);
+    localStorage.removeItem(STORAGE_KEYS.LAST_SPIN_DATE);
+  } catch (e) {
+    console.error('Error clearing spin timestamp', e);
   }
 };
 

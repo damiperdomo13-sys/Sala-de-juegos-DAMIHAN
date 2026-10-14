@@ -6,7 +6,7 @@ import { ref, get, set, onValue } from 'firebase/database';
 const ACCOUNTS_STORAGE_KEY = 'damihan_registered_accounts_v1';
 const SESSION_STORAGE_KEY = 'damihan_active_session_username_v1';
 const ADMIN_PIN_STORAGE_KEY = 'damihan_admin_pin_v1';
-const DEFAULT_ADMIN_PIN = '2026';
+const DEFAULT_ADMIN_PIN = '1324';
 
 /**
  * Standard native Web Crypto SHA-256 hasher for client-side passwords
@@ -119,7 +119,7 @@ export const fetchUserAccount = async (username: string): Promise<UserAccount | 
 };
 
 /**
- * Automatically credits +25 minutes to referrer when a new user registers with their referral link
+ * Automatically credits +20 minutes to referrer when an invited friend performs their first in-person check-in
  */
 export const creditReferralBonus = async (
   referrerUsername: string,
@@ -134,7 +134,7 @@ export const creditReferralBonus = async (
     return false;
   }
 
-  const bonusMinutes = 25;
+  const bonusMinutes = 20;
   const now = Date.now();
   const prevProfile = referrerAccount.profile;
   const newBalance = (prevProfile.minutesBalance || 0) + bonusMinutes;
@@ -153,15 +153,15 @@ export const creditReferralBonus = async (
   const referralTx: Transaction = {
     id: `tx_${now}_ref_${referredUsername}`,
     type: 'task',
-    title: 'Bono de Invitación de Amigo (+25 min)',
-    subtitle: `¡Tu amigo @${referredUsername} se ha registrado con tu enlace!`,
+    title: 'Bono de Referido (+20 min)',
+    subtitle: `¡Tu amigo @${referredUsername} visitó la sala e hizo su primer check-in presencial!`,
     minutes: bonusMinutes,
     timestamp: now,
     status: 'completed',
   };
 
   const updatedTasks = (referrerAccount.tasks || INITIAL_TASKS).map((t) =>
-    t.id === 'task-4' ? { ...t, completed: true, claimable: false } : t
+    t.id === 'task-4' ? { ...t, minutes: 20, completed: false, claimable: true } : t
   );
 
   const updatedTxs = [referralTx, ...(referrerAccount.transactions || [])];
@@ -220,6 +220,18 @@ export const registerCustomer = async (
   // Fresh user profile strictly initialized with 0 minutes, Level 1, and 0 days streak
   const newProfile = createInitialUserProfile(cleanUsername, displayName);
 
+  // ANTI-FRAUD REFERRAL LOGIC:
+  // If registered via a referral link, link referrer and set referralBonusAwarded: false.
+  // The +20 minutes reward will be automatically accredited to the referrer ONLY when
+  // this new user completes their first in-person check-in!
+  let referredBy: string | undefined = undefined;
+  if (referredByRaw) {
+    const cleanReferrer = sanitizeUsername(referredByRaw);
+    if (cleanReferrer && cleanReferrer !== cleanUsername) {
+      referredBy = cleanReferrer;
+    }
+  }
+
   const newAccount: UserAccount = {
     id: newProfile.id,
     username: cleanUsername,
@@ -232,22 +244,12 @@ export const registerCustomer = async (
     lastSpinTimestamp: 0,
     lastSpinDate: '',
     lastCheckinTimestamp: 0,
+    referredBy: referredBy,
+    referralBonusAwarded: false,
   };
 
   await saveAccountToCloud(newAccount);
   setActiveSessionUsername(cleanUsername);
-
-  // If registering via referral link, detect referrer and credit +25 minutes in Firebase!
-  if (referredByRaw) {
-    const cleanReferrer = sanitizeUsername(referredByRaw);
-    if (cleanReferrer && cleanReferrer !== cleanUsername) {
-      try {
-        await creditReferralBonus(cleanReferrer, cleanUsername);
-      } catch (err) {
-        console.warn('Error applying referral bonus in Firebase:', err);
-      }
-    }
-  }
 
   return {
     success: true,
@@ -325,7 +327,13 @@ export const logoutCustomer = () => {
  */
 export const getStoredAdminPin = (): string => {
   try {
-    return localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || DEFAULT_ADMIN_PIN;
+    const stored = localStorage.getItem(ADMIN_PIN_STORAGE_KEY);
+    if (stored && stored !== '2026') {
+      return stored;
+    }
+    // Migrate or initialize to 1324
+    localStorage.setItem(ADMIN_PIN_STORAGE_KEY, DEFAULT_ADMIN_PIN);
+    return DEFAULT_ADMIN_PIN;
   } catch {
     return DEFAULT_ADMIN_PIN;
   }
@@ -345,7 +353,8 @@ export const setStoredAdminPin = (newPin: string): boolean => {
 
 export const verifyAdminPin = (enteredPin: string): boolean => {
   const currentPin = getStoredAdminPin();
-  return enteredPin.trim() === currentPin || enteredPin.trim() === DEFAULT_ADMIN_PIN;
+  const trimmed = enteredPin.trim();
+  return trimmed === currentPin || trimmed === DEFAULT_ADMIN_PIN || trimmed === '1324';
 };
 
 /**

@@ -356,14 +356,17 @@ export const TasksList: React.FC<TasksListProps> = ({
       return;
     }
 
+    // Referral task is ALWAYS active, unlimited and opens the modal to copy unique link
+    if (task.id === 'task-4') {
+      soundEffects.playTick(1.0);
+      setReferralModalOpen(true);
+      return;
+    }
+
     if (task.completed) return;
 
     if (task.id === 'task-2') {
       setProfileModalOpen(true);
-      return;
-    }
-    if (task.id === 'task-4') {
-      setReferralModalOpen(true);
       return;
     }
 
@@ -401,7 +404,7 @@ export const TasksList: React.FC<TasksListProps> = ({
           </p>
         </div>
         <div className="text-xs text-slate-400 font-mono">
-          {activeTasks.filter((t) => (t.id === 'task-checkin' ? isCheckedInToday : t.completed)).length} / {activeTasks.length} Completadas
+          {activeTasks.filter((t) => (t.id === 'task-checkin' ? isCheckedInToday : (t.id === 'task-4' ? false : t.completed))).length} / {activeTasks.filter(t => t.id !== 'task-4').length} Completadas
         </div>
       </div>
 
@@ -409,7 +412,9 @@ export const TasksList: React.FC<TasksListProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {activeTasks.map((task) => {
           const isCheckin = task.id === 'task-checkin';
-          const isDone = isCheckin ? isCheckedInToday : task.completed;
+          const isReferral = task.id === 'task-4';
+          // Referral task is ALWAYS active, unlimited and NEVER marked as completed or crossed out
+          const isDone = isReferral ? false : (isCheckin ? isCheckedInToday : task.completed);
 
           return (
             <div
@@ -419,6 +424,8 @@ export const TasksList: React.FC<TasksListProps> = ({
                   ? 'bg-slate-900/40 border-slate-800/50 opacity-80'
                   : isCheckin
                   ? 'bg-gradient-to-r from-emerald-950/30 to-slate-900/90 border-emerald-500/50 hover:border-emerald-500/80 shadow-lg'
+                  : isReferral
+                  ? 'bg-gradient-to-r from-amber-950/20 via-slate-900/90 to-slate-900/90 border-amber-500/40 hover:border-amber-500/70 shadow-md'
                   : 'bg-slate-900/90 border-slate-800 hover:border-slate-700 hover:bg-slate-900 shadow-md'
               }`}
             >
@@ -429,6 +436,8 @@ export const TasksList: React.FC<TasksListProps> = ({
                       ? 'bg-slate-800/50 border-slate-700/40'
                       : isCheckin
                       ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-400 shadow-sm'
+                      : isReferral
+                      ? 'bg-amber-950/60 border-amber-500/60 text-amber-400 shadow-sm'
                       : 'bg-slate-800/80 border-slate-700'
                   }`}
                 >
@@ -456,7 +465,11 @@ export const TasksList: React.FC<TasksListProps> = ({
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
-                <span className="font-mono font-bold text-xs text-emerald-400 bg-emerald-950/60 border border-emerald-800/50 px-2 py-0.5 rounded-md">
+                <span className={`font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
+                  isReferral
+                    ? 'text-amber-300 bg-amber-950/60 border border-amber-800/50'
+                    : 'text-emerald-400 bg-emerald-950/60 border border-emerald-800/50'
+                }`}>
                   +{task.minutes}m
                 </span>
 
@@ -468,13 +481,19 @@ export const TasksList: React.FC<TasksListProps> = ({
                       ? 'bg-slate-800 text-slate-500 cursor-default'
                       : isCheckin
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer font-bold'
+                      : isReferral
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-500 hover:brightness-110 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95 cursor-pointer font-bold'
                       : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer font-bold'
                   }`}
                 >
                   {isDone
-                    ? 'Completado Hoy'
+                    ? isCheckin
+                      ? 'Completado Hoy'
+                      : 'Completado'
                     : isCheckin
                     ? 'Escanear / Código'
+                    : isReferral
+                    ? 'Invitar Amigos'
                     : 'Completar'}
                 </button>
               </div>
@@ -770,8 +789,8 @@ export const TasksList: React.FC<TasksListProps> = ({
             <h4 className="text-base font-bold text-white text-center">
               Invitar a un Amigo a {STORE_NAME}
             </h4>
-            <p className="text-xs text-slate-300 mt-1 text-center">
-              Comparte tu enlace de recomendación único. Cuando un nuevo usuario se registre usando tu enlace, el sistema te acreditará automáticamente <strong className="text-emerald-400">+25 minutos</strong> en tu cuenta.
+            <p className="text-xs text-slate-300 mt-1 text-center leading-relaxed">
+              Comparte tu enlace. Cuando tu amigo se registre y visite la sala por primera vez (primer check-in presencial), recibirás <strong className="text-emerald-400 font-bold">+20 minutos</strong> automáticamente.
             </p>
 
             <div className="my-4 p-3 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 text-center break-all select-all">

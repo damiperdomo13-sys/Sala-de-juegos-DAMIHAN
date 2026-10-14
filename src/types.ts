@@ -80,4 +80,6 @@ export interface UserAccount {
   lastSpinTimestamp: number;
   lastSpinDate?: string;
   lastCheckinTimestamp: number;
+  referredBy?: string;
+  referralBonusAwarded?: boolean;
 }

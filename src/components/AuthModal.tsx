@@ -175,7 +175,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <div>
                   <span className="font-semibold text-amber-300">¡Enlace de Referido Detectado!</span>
                   <p className="text-[11px] text-amber-200/90 mt-0.5">
-                    Invitado por <strong className="text-white font-mono">@{referredBy}</strong>. Al registrarte se acreditarán automáticamente +25 min a tu amigo.
+                    Invitado por <strong className="text-white font-mono">@{referredBy}</strong>. Cuando visites la sala por primera vez (primer check-in presencial), tu amigo recibirá <strong className="text-emerald-300">+20 minutos</strong> automáticamente.
                   </p>
                 </div>
               </div>

@@ -18,6 +18,7 @@ import {
   saveStoredVouchers,
   loadLastSpinTimestamp,
   saveLastSpinTimestamp,
+  clearLastSpinTimestamp,
   loadLastSpinDate,
   saveLastSpinDate,
   getTodayDateString,
@@ -48,6 +49,7 @@ import {
   fetchUserAccount,
   saveAccountToCloud,
   subscribeToCustomerCloud,
+  creditReferralBonus,
 } from './utils/auth';
 import { Navbar } from './components/Navbar';
 import { ClientView } from './components/ClientView';
@@ -207,6 +209,7 @@ export default function App() {
       lastSpinTimestamp?: number;
       lastSpinDate?: string;
       lastCheckinTimestamp?: number;
+      referralBonusAwarded?: boolean;
     }) => {
       const cur = stateRef.current;
       const updatedProfile = overrides.profile || cur.user;
@@ -241,6 +244,9 @@ export default function App() {
           lastSpinTimestamp: updatedSpinTs,
           lastSpinDate: updatedSpinDate,
           lastCheckinTimestamp: updatedCheckinTs,
+          ...(overrides.referralBonusAwarded !== undefined
+            ? { referralBonusAwarded: overrides.referralBonusAwarded }
+            : {}),
         };
         setCurrentUserAccount(updatedAccount);
         await saveAccountToCloud(updatedAccount);
@@ -398,6 +404,22 @@ export default function App() {
     });
   };
 
+  // Test helper: Force / simulate daily roulette reset immediately for testing probabilities & mechanics
+  const handleResetRouletteCooldown = () => {
+    clearLastSpinTimestamp();
+    setLastSpinTimestamp(0);
+    setLastSpinDate('');
+    soundEffects.playTick(1.2);
+    setCloudToast({
+      message: '🔄 [Modo Prueba] Giro de ruleta reiniciado. ¡Puedes volver a girar inmediatamente!',
+      type: 'info',
+    });
+    syncAccountChanges({
+      lastSpinTimestamp: 0,
+      lastSpinDate: '',
+    });
+  };
+
   // Task claim handler
   const handleClaimTask = (taskId: string, minutes: number, taskTitle: string) => {
     const now = Date.now();
@@ -489,6 +511,32 @@ export default function App() {
         });
       }
 
+      // ANTI-FRAUD REFERRAL LOGIC:
+      // When a user registered via a referral link performs their FIRST in-person check-in,
+      // the system credits +20 minutes automatically to the referrer in Firebase!
+      const currentAcc = stateRef.current.currentUserAccount;
+      let shouldAwardReferral = false;
+      if (
+        currentAcc &&
+        currentAcc.referredBy &&
+        !currentAcc.referralBonusAwarded &&
+        (prevCheckin === 0 || !currentAcc.referralBonusAwarded)
+      ) {
+        shouldAwardReferral = true;
+        creditReferralBonus(currentAcc.referredBy, currentAcc.username)
+          .then((credited) => {
+            if (credited) {
+              setCloudToast({
+                message: `🎉 ¡Bono de referido activado! Se acreditaron automáticamente +20 min a tu amigo @${currentAcc.referredBy} por tu primera visita presencial.`,
+                type: 'success',
+              });
+            }
+          })
+          .catch((err) => {
+            console.warn('Error applying deferred referral bonus in Firebase:', err);
+          });
+      }
+
       newTx = {
         id: `tx_${now}`,
         type: 'task',
@@ -503,10 +551,12 @@ export default function App() {
         status: 'completed',
       };
     } else {
-      updatedTasks = updatedTasks.map((t) =>
-        t.id === taskId ? { ...t, completed: true, claimable: false } : t
-      );
-      setTasks(updatedTasks);
+      if (taskId !== 'task-4') {
+        updatedTasks = updatedTasks.map((t) =>
+          t.id === taskId ? { ...t, completed: true, claimable: false } : t
+        );
+        setTasks(updatedTasks);
+      }
       updatedUser = creditUserMinutes(minutes);
 
       newTx = {
@@ -528,6 +578,9 @@ export default function App() {
       tasks: updatedTasks,
       transactions: updatedTxs,
       lastCheckinTimestamp: updatedCheckinTime,
+      ...(taskId === 'task-checkin' && stateRef.current.currentUserAccount?.referredBy
+        ? { referralBonusAwarded: true }
+        : {}),
     });
   };
 
@@ -643,6 +696,7 @@ export default function App() {
             onClaimTask={handleClaimTask}
             onCreateVoucher={handleCreateVoucher}
             onOpenAdminAccess={handleOpenAdminAccess}
+            onResetRouletteCooldown={handleResetRouletteCooldown}
           />
         ) : (
           <AdminView

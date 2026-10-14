@@ -33,6 +33,7 @@ interface ClientViewProps {
   onClaimTask: (taskId: string, minutes: number, taskTitle: string) => void;
   onCreateVoucher: (voucher: RedeemVoucher) => void;
   onOpenAdminAccess?: () => void;
+  onResetRouletteCooldown?: () => void;
 }
 
 export const ClientView: React.FC<ClientViewProps> = ({
@@ -48,6 +49,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
   onClaimTask,
   onCreateVoucher,
   onOpenAdminAccess,
+  onResetRouletteCooldown,
 }) => {
   const [activeTab, setActiveTab] = useState<'all' | 'roulette' | 'tasks' | 'redeem'>('all');
 
@@ -347,6 +349,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
             lastSpinTimestamp={lastSpinTimestamp}
             lastSpinDate={lastSpinDate}
             onSpinWin={onSpinWin}
+            onResetCooldown={onResetRouletteCooldown}
           />
         </div>
       )}
