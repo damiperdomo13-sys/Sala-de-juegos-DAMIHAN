@@ -1,0 +1,154 @@
+import React, { useState } from 'react';
+import { History, ArrowDownRight, ArrowUpRight, Filter } from 'lucide-react';
+import { Transaction, TransactionType } from '../types';
+
+interface TransactionHistoryProps {
+  transactions: Transaction[];
+}
+
+export const TransactionHistory: React.FC<TransactionHistoryProps> = ({ transactions }) => {
+  const [filterType, setFilterType] = useState<string>('all');
+
+  const filtered = transactions.filter((t) => {
+    if (filterType === 'all') return true;
+    if (filterType === 'redeem') return t.type === 'redeem';
+    if (filterType === 'roulette') return t.type === 'roulette';
+    if (filterType === 'task') return t.type === 'task' || t.type === 'bonus';
+    return true;
+  });
+
+  const formatDate = (timestamp: number) => {
+    const d = new Date(timestamp);
+    return d.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="bg-[#0b101b] rounded-2xl p-5 border border-slate-800/80 shadow-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-slate-400" />
+            <h3 className="font-bold text-white text-base md:text-lg">
+              Historial de Transacciones
+            </h3>
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Registro de acumulación y canjes aprobados en el sistema.
+          </p>
+        </div>
+
+        {/* Filter controls */}
+        <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800 self-start sm:self-auto">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              filterType === 'all'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Todos
+          </button>
+          <button
+            onClick={() => setFilterType('redeem')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              filterType === 'redeem'
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Canjes
+          </button>
+          <button
+            onClick={() => setFilterType('roulette')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              filterType === 'roulette'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Ruleta
+          </button>
+          <button
+            onClick={() => setFilterType('task')}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+              filterType === 'task'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Tareas
+          </button>
+        </div>
+      </div>
+
+      {/* Transaction List */}
+      <div className="divide-y divide-slate-800/60 max-h-96 overflow-y-auto pr-1">
+        {filtered.length === 0 ? (
+          <div className="py-8 text-center text-slate-500 text-xs">
+            No hay transacciones registradas en este filtro.
+          </div>
+        ) : (
+          filtered.map((item) => {
+            const isPositive = item.minutes > 0;
+            return (
+              <div
+                key={item.id}
+                className="py-3 flex items-center justify-between gap-3 hover:bg-slate-900/30 px-2 rounded-xl transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                      isPositive
+                        ? 'bg-emerald-950/40 border-emerald-800/40 text-emerald-400'
+                        : 'bg-rose-950/40 border-rose-800/40 text-rose-400'
+                    }`}
+                  >
+                    {isPositive ? (
+                      <ArrowUpRight className="w-4 h-4" />
+                    ) : (
+                      <ArrowDownRight className="w-4 h-4" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-xs md:text-sm text-slate-100 truncate">
+                      {item.title}
+                    </h4>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                      <span>{formatDate(item.timestamp)}</span>
+                      {item.voucherCode && (
+                        <>
+                          <span>·</span>
+                          <span className="font-mono text-cyan-400">{item.voucherCode}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <span
+                    className={`font-mono font-bold text-sm block ${
+                      isPositive ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {isPositive ? `+${item.minutes}` : item.minutes} min
+                  </span>
+                  <span className="text-[10px] text-slate-500 capitalize">
+                    {item.status === 'completed' ? 'Aprobado' : item.status}
+                  </span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+};

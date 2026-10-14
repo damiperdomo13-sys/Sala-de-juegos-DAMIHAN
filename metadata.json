@@ -1,0 +1,6 @@
+{
+  "name": "ChronoRewards - Sistema de Fidelización por Minutos",
+  "description": "Sistema de fidelización digital y recompensas en minutos con ruleta diaria, tareas interactivas, canje con códigos QR y panel de control para administradores.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

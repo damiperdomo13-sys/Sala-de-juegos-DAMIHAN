@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Sala de Juegos Damihan - Sistema de Fidelización por Minutos</title>
+    <meta name="description" content="Sistema de fidelización por minutos de Sala de Juegos Damihan. Ruleta diaria, visitas presenciales, tareas y canjes con código QR." />
+    <meta property="og:title" content="Sala de Juegos Damihan - Sistema de Fidelización por Minutos" />
+    <meta property="og:description" content="Sistema de fidelización por minutos de Sala de Juegos Damihan. Ruleta diaria, visitas presenciales, tareas y canjes con código QR." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+      (function() {
+        // Prevent extension errors when extensions attempt to overwrite window.fetch
+        try {
+          var originalFetch = window.fetch ? window.fetch.bind(window) : undefined;
+          var currentFetch = originalFetch;
+          Object.defineProperty(window, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            get: function() {
+              return currentFetch;
+            },
+            set: function(val) {
+              currentFetch = val;
+            }
+          });
+        } catch (err) {
+          // Ignore defineProperty errors
+        }
+
+        // Prevent browser extension runtime errors from surfacing as application errors
+        window.addEventListener('error', function(event) {
+          if (
+            event &&
+            (
+              (event.filename && (
+                event.filename.indexOf('chrome-extension://') !== -1 ||
+                event.filename.indexOf('moz-extension://') !== -1 ||
+                event.filename.indexOf('safari-web-extension://') !== -1
+              )) ||
+              (event.message && event.message.indexOf('Cannot set property fetch') !== -1)
+            )
+          ) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return true;
+          }
+        }, true);
+      })();
+    </script>
+  </head>
+  <body class="bg-[#07090e] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-300">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
