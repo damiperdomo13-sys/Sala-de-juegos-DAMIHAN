@@ -219,14 +219,14 @@ export const createInitialUserProfile = (username: string, displayName?: string)
 });
 
 export const ROULETTE_SECTORS: RouletteSector[] = [
-  { id: 'sec-1', minutes: 10, label: '+10 Min', color: '#0ea5e9', textColor: '#ffffff', weight: 25 },
-  { id: 'sec-2', minutes: 5, label: '+5 Min', color: '#064e3b', textColor: '#a7f3d0', weight: 30 },
-  { id: 'sec-3', minutes: 20, label: '+20 Min', color: '#10b981', textColor: '#ffffff', weight: 15 },
-  { id: 'sec-4', minutes: 15, label: '+15 Min', color: '#0369a1', textColor: '#bae6fd', weight: 20 },
-  { id: 'sec-5', minutes: 30, label: '+30 Min', color: '#059669', textColor: '#ffffff', weight: 10 },
-  { id: 'sec-6', minutes: 0, label: 'Vuelve a intentar', color: '#334155', textColor: '#f1f5f9', weight: 25 },
-  { id: 'sec-7', minutes: 50, label: '+50 Min', color: '#0d9488', textColor: '#ccfbf1', weight: 5 },
-  { id: 'sec-8', minutes: 100, label: '★ 100 Min ★', color: '#f59e0b', textColor: '#0f172a', weight: 2 },
+  { id: 'sec-1', minutes: 0, label: 'Vuelve a intentar', color: '#334155', textColor: '#f8fafc', weight: 20 },
+  { id: 'sec-2', minutes: 0, label: 'Vuelve a intentar', color: '#1e293b', textColor: '#cbd5e1', weight: 20 },
+  { id: 'sec-3', minutes: 5, label: '+5 Minutos', color: '#065f46', textColor: '#a7f3d0', weight: 20 },
+  { id: 'sec-4', minutes: 10, label: '+10 Minutos', color: '#0284c7', textColor: '#ffffff', weight: 15 },
+  { id: 'sec-5', minutes: 15, label: '+15 Minutos', color: '#0d9488', textColor: '#ccfbf1', weight: 12 },
+  { id: 'sec-6', minutes: 20, label: '+20 Minutos', color: '#10b981', textColor: '#ffffff', weight: 8 },
+  { id: 'sec-7', minutes: 30, label: '+30 Minutos', color: '#6366f1', textColor: '#e0e7ff', weight: 4 },
+  { id: 'sec-8', minutes: 100, label: '+100 Minutos', color: '#f59e0b', textColor: '#0f172a', weight: 1 },
 ];
 
 // Cleaned tasks: Only valid tasks (Visita Diaria con Código del Cartel, Perfil, Amigos)

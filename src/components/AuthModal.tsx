@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   Lock,
@@ -39,6 +39,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [referredBy, setReferredBy] = useState<string>('');
+
+  // Auto-detect ?ref= username from URL
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const refCode = params.get('ref');
+      if (refCode) {
+        setReferredBy(refCode.trim());
+        setTab('register');
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -57,7 +70,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           return;
         }
 
-        const res = await registerCustomer(username, password, displayName);
+        const res = await registerCustomer(username, password, displayName, referredBy);
         if (res.success && res.account) {
           soundEffects.playWin();
           setSuccessMsg(res.message);
@@ -155,11 +168,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         {/* Registration Info Note */}
         {tab === 'register' && (
-          <div className="mb-4 bg-emerald-950/40 border border-emerald-800/40 rounded-xl p-3 flex items-start gap-2.5 text-xs text-emerald-200">
-            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="block font-semibold text-emerald-300">Regla de Cuenta Oficial:</strong>
-              <span>Tu cuenta iniciará con <strong>0 minutos</strong>, <strong>Nivel 1 (Novato)</strong> y racha en <strong>0 días</strong>. ¡Gira la ruleta y visita la sala para empezar a subir de nivel!</span>
+          <div className="space-y-2.5 mb-4">
+            {referredBy && (
+              <div className="bg-amber-950/50 border border-amber-500/50 rounded-xl p-3 flex items-center gap-2.5 text-xs text-amber-200">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <div>
+                  <span className="font-semibold text-amber-300">¡Enlace de Referido Detectado!</span>
+                  <p className="text-[11px] text-amber-200/90 mt-0.5">
+                    Invitado por <strong className="text-white font-mono">@{referredBy}</strong>. Al registrarte se acreditarán automáticamente +25 min a tu amigo.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-emerald-950/40 border border-emerald-800/40 rounded-xl p-3 flex items-start gap-2.5 text-xs text-emerald-200">
+              <Sparkles className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-semibold text-emerald-300">Regla de Cuenta Oficial:</strong>
+                <span>Tu cuenta iniciará con <strong>0 minutos</strong>, <strong>Nivel 1 (Novato)</strong> y racha en <strong>0 días</strong>. ¡Gira la ruleta y visita la sala para empezar a subir de nivel!</span>
+              </div>
             </div>
           </div>
         )}

@@ -11,9 +11,10 @@ import {
   ChevronRight,
   Gamepad2,
   Lock,
+  CheckCircle2,
 } from 'lucide-react';
 import { UserProfile, RewardTask, RedeemVoucher } from '../types';
-import { calculateUserLevel } from '../utils/storage';
+import { calculateUserLevel, isSameCalendarDay } from '../utils/storage';
 import { Roulette } from './Roulette';
 import { TasksList } from './TasksList';
 import { RedeemSection } from './RedeemSection';
@@ -23,6 +24,7 @@ interface ClientViewProps {
   user: UserProfile;
   tasks: RewardTask[];
   vouchers?: RedeemVoucher[];
+  username?: string;
   lastSpinTimestamp: number;
   lastSpinDate?: string;
   lastCheckinTimestamp: number;
@@ -37,6 +39,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
   user,
   tasks,
   vouchers = [],
+  username,
   lastSpinTimestamp,
   lastSpinDate,
   lastCheckinTimestamp,
@@ -181,31 +184,117 @@ export const ClientView: React.FC<ClientViewProps> = ({
 
         {/* Card Footer Bar */}
         <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2">
-          <span className="flex items-center gap-1.5">
-            <Flame
-              className={`w-4 h-4 ${
-                user.streakDays > 0
-                  ? 'text-amber-400 fill-amber-400 animate-pulse'
-                  : 'text-slate-500'
-              }`}
-            />
-            <span>Racha de visitas a la sala:</span>
-            <strong
-              className={`font-bold ${
-                user.streakDays > 0 ? 'text-emerald-400 font-mono text-xs' : 'text-slate-400 font-mono text-xs'
-              }`}
-            >
-              {user.streakDays || 0} {user.streakDays === 1 ? 'día consecutivo' : 'días consecutivos'}
-            </strong>
-            {user.streakDays === 0 && (
-              <span className="text-[10px] text-amber-400/90 bg-amber-950/60 border border-amber-800/50 px-1.5 py-0.5 rounded-md">
-                Inactividad · ¡Visita hoy para iniciar racha!
-              </span>
-            )}
+          <span className="flex items-center gap-1.5 font-mono text-emerald-400">
+            <Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
+            <span>Sistema Activo en Sala Damihan · Canjes habilitados en caja</span>
           </span>
           <span className="font-mono text-slate-500">ID Gamer: {user.id}</span>
         </div>
       </div>
+
+      {/* MÓDULO DESTACADO DE RACHA DE VISITAS PRESENCIALES */}
+      {(() => {
+        const currentStreak = user.streakDays || 0;
+        const isCheckedInToday = isSameCalendarDay(lastCheckinTimestamp, Date.now());
+        const nextMilestone = currentStreak === 0 ? 5 : (Math.floor(currentStreak / 5) + 1) * 5;
+        const daysToNextMilestone = nextMilestone - currentStreak;
+
+        return (
+          <div className="relative rounded-3xl p-6 md:p-7 bg-gradient-to-br from-[#1a0f07] via-[#120d18] to-[#080d19] border-2 border-amber-500/60 shadow-2xl shadow-amber-500/15 overflow-hidden glow-amber">
+            {/* Ambient fire illumination */}
+            <div className="absolute -top-16 -left-16 w-56 h-56 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-orange-600/15 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+              {/* Flame Icon & Streak Counter */}
+              <div className="flex items-start sm:items-center gap-4">
+                <div className="relative shrink-0">
+                  <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-600 flex items-center justify-center text-slate-950 font-black shadow-xl shadow-orange-500/40 animate-pulse">
+                    <Flame className="w-9 h-9 md:w-11 md:h-11 fill-slate-950 text-slate-950" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-slate-950 border-2 border-amber-400 flex items-center justify-center text-amber-400 shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold tracking-widest text-amber-400 uppercase bg-amber-950/80 border border-amber-700/80 px-2.5 py-0.5 rounded-full">
+                      SISTEMA DE RACHAS EN SALA
+                    </span>
+                    {isCheckedInToday ? (
+                      <span className="text-[11px] font-semibold text-emerald-300 bg-emerald-950/80 border border-emerald-700/70 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                        <span>Visita de hoy validada</span>
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-amber-300 bg-amber-950/80 border border-amber-700/70 px-2 py-0.5 rounded-full animate-pulse">
+                        ¡Valida tu visita hoy para sumar!
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <h3 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-orange-300 to-amber-400 font-mono">
+                      {currentStreak}
+                    </h3>
+                    <span className="text-lg md:text-xl font-black text-white font-sans uppercase">
+                      {currentStreak === 1 ? 'DÍA CONSECUTIVO' : 'DÍAS CONSECUTIVOS'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300 mt-1 max-w-md">
+                    {currentStreak > 0 ? (
+                      <span>
+                        ¡Mantén la llama viva! Próximo hito: <strong className="text-amber-300 font-bold">Día {nextMilestone}</strong> (en {daysToNextMilestone} {daysToNextMilestone === 1 ? 'día' : 'días'}) para el <strong className="text-emerald-400">Bono Especial de +5 Minutos</strong>.
+                      </span>
+                    ) : (
+                      <span>
+                        Escanea el código QR del cartel en la recepción para iniciar tu racha y ganar <strong className="text-amber-300">5 minutos base</strong>.
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {/* Action & Reward Breakdown */}
+              <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 shrink-0">
+                <button
+                  onClick={() => {
+                    soundEffects.playTick(1.1);
+                    const el = document.getElementById('seccion-tareas');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`py-3 px-5 rounded-xl font-black text-xs md:text-sm tracking-wide shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    isCheckedInToday
+                      ? 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700'
+                      : 'bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 text-slate-950 hover:brightness-110 active:scale-95 shadow-orange-500/25 glow-amber'
+                  }`}
+                >
+                  <Flame className="w-4 h-4 fill-current" />
+                  <span>{isCheckedInToday ? 'VER DETALLES DE VISITA' : 'VALIDAR VISITA PRESENCIAL'}</span>
+                </button>
+
+                {/* Quick Reward Pill Legend */}
+                <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono">
+                  <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300 flex items-center justify-between">
+                    <span>Base QR:</span>
+                    <strong className="text-emerald-400 font-bold">+5 min</strong>
+                  </div>
+                  <div className="bg-slate-950/80 border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300 flex items-center justify-between">
+                    <span>Día extra:</span>
+                    <strong className="text-cyan-400 font-bold">+1 min</strong>
+                  </div>
+                  <div className="col-span-2 bg-amber-950/40 border border-amber-800/60 px-2.5 py-1 rounded-lg text-amber-200 flex items-center justify-between">
+                    <span>Hito cada 5 días (Día 5, 10, 15...):</span>
+                    <strong className="text-amber-300 font-bold">¡+5 min bono!</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tab Navigation for sections */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -270,6 +359,7 @@ export const ClientView: React.FC<ClientViewProps> = ({
             lastCheckinTimestamp={lastCheckinTimestamp}
             dailyStoreCode={dailyStoreCode}
             userStreak={user.streakDays || 0}
+            username={username || user.name}
             onClaimTask={onClaimTask}
           />
         </div>

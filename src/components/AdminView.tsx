@@ -134,18 +134,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
     [vouchers, user]
   );
 
-  // Generate poster QR pointing to Client View URL
+  // Generate poster QR pointing directly to the official public production URL
   useEffect(() => {
-    let clientUrl = '';
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href);
-      url.searchParams.set('view', 'client');
-      clientUrl = url.toString();
-    } else {
-      clientUrl = 'https://saladejuegosdamihan.app/?view=client';
-    }
+    const publicAppUrl = 'https://sala-de-juegos-damihan.netlify.app/';
 
-    QRCode.toDataURL(clientUrl, {
+    QRCode.toDataURL(publicAppUrl, {
       width: 320,
       margin: 2,
       color: {
@@ -392,9 +385,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleCopyPosterUrl = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set('view', 'client');
-    navigator.clipboard?.writeText(url.toString());
+    const url = 'https://sala-de-juegos-damihan.netlify.app/';
+    navigator.clipboard?.writeText(url);
     setCopiedPosterUrl(true);
     soundEffects.playTick(1.1);
     setTimeout(() => setCopiedPosterUrl(false), 2000);
@@ -481,7 +473,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {adminTab === 'scanner' ? (
         <>
           {/* Admin KPI Header Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[#0b101b] rounded-2xl p-4 border border-slate-800 shadow-md">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-400 font-medium">Minutos Canjeados Hoy</span>
@@ -491,22 +483,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-white font-mono">{totalRedeemedToday}</span>
-                <span className="text-xs text-slate-400">minutos totales</span>
-              </div>
-            </div>
-
-            <div className="bg-[#0b101b] rounded-2xl p-4 border border-slate-800 shadow-md">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium">Cupones Pendientes</span>
-                <div className="w-8 h-8 rounded-lg bg-amber-950/50 border border-amber-800/40 flex items-center justify-center text-amber-400">
-                  <Clock className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-amber-400 font-mono">
-                  {pendingVouchers.length}
-                </span>
-                <span className="text-xs text-slate-400">en cola de atención</span>
+                <span className="text-xs text-slate-400">minutos totales descontados en caja</span>
               </div>
             </div>
 
@@ -521,7 +498,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <span className="text-2xl font-black text-emerald-400 font-mono">
                   {user.minutesBalance}
                 </span>
-                <span className="text-xs text-slate-400">minutos para canjear</span>
+                <span className="text-xs text-slate-400">minutos acumulados en cuenta</span>
               </div>
             </div>
           </div>
@@ -918,6 +895,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <div className="text-center mt-4">
                 <span className="font-extrabold text-sm text-cyan-300 tracking-wide uppercase block print:text-black">
                   📸 ESCANEA CON LA CÁMARA DE TU MÓVIL
+                </span>
+                <span className="text-xs font-mono font-bold text-emerald-400 print:text-black block mt-1">
+                  https://sala-de-juegos-damihan.netlify.app/
                 </span>
                 <span className="text-[11px] text-slate-400 print:text-slate-600 block mt-0.5">
                   No requiere instalar ninguna aplicación

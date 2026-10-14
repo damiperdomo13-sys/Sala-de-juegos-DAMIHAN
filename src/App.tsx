@@ -404,6 +404,7 @@ export default function App() {
     let updatedUser = stateRef.current.user;
     let updatedTasks = stateRef.current.tasks;
     let updatedCheckinTime = stateRef.current.lastCheckinTimestamp;
+    let newTx: Transaction;
 
     if (taskId === 'task-checkin') {
       const curStreak = updatedUser.streakDays || 0;
@@ -419,6 +420,24 @@ export default function App() {
         }
       }
 
+      // Base: 5 minutes for scanning QR
+      const baseMinutes = 5;
+      let extraMinutes = 0;
+      let isMilestone = false;
+
+      if (newStreak > 1) {
+        if (newStreak % 5 === 0) {
+          // Hitos especiales: Cada 5 días de racha (Día 5, Día 10, Día 15...), en vez de 1 minuto extra, otorga un bono especial de +5 minutos extras.
+          extraMinutes = 5;
+          isMilestone = true;
+        } else {
+          // Suma +1 minuto extra por cada día consecutivo de racha.
+          extraMinutes = 1;
+        }
+      }
+
+      const totalMinutes = baseMinutes + extraMinutes;
+
       updatedCheckinTime = now;
       setLastCheckinTimestamp(now);
 
@@ -427,12 +446,12 @@ export default function App() {
       );
       setTasks(updatedTasks);
 
-      const newTotalEarned = updatedUser.totalEarnedAllTime + minutes;
+      const newTotalEarned = updatedUser.totalEarnedAllTime + totalMinutes;
       const { currentTier, targetMinutes } = calculateUserLevel(newTotalEarned);
 
       updatedUser = {
         ...updatedUser,
-        minutesBalance: updatedUser.minutesBalance + minutes,
+        minutesBalance: updatedUser.minutesBalance + totalMinutes,
         totalEarnedAllTime: newTotalEarned,
         level: currentTier.name,
         levelTier: currentTier.tier,
@@ -442,30 +461,64 @@ export default function App() {
       };
       setUser(updatedUser);
 
-      setCloudToast({
-        message: `🔥 ¡Visita presencial registrada! Racha de visitas: ${newStreak} ${newStreak === 1 ? 'día' : 'días'} (+5 min)`,
-        type: 'success',
-      });
+      if (isMilestone) {
+        soundEffects.playWin();
+        try {
+          confetti({
+            particleCount: 110,
+            spread: 85,
+            origin: { y: 0.55 },
+            colors: ['#f59e0b', '#ef4444', '#10b981', '#38bdf8'],
+          });
+        } catch {
+          // Ignore
+        }
+        setCloudToast({
+          message: `🔥 ¡HITO ESPECIAL DÍA ${newStreak}! 5 min base + 5 min bono especial = ¡+10 MINUTOS!`,
+          type: 'success',
+        });
+      } else if (extraMinutes > 0) {
+        setCloudToast({
+          message: `🔥 ¡Día ${newStreak} de racha consecutivo! 5 min base + 1 min extra = +${totalMinutes} min`,
+          type: 'success',
+        });
+      } else {
+        setCloudToast({
+          message: `🔥 ¡Visita presencial registrada! +5 min base para iniciar tu racha en sala`,
+          type: 'success',
+        });
+      }
+
+      newTx = {
+        id: `tx_${now}`,
+        type: 'task',
+        title: isMilestone ? `Hito de Racha Día ${newStreak}` : 'Visita Diaria al Local',
+        subtitle: isMilestone
+          ? `5 min base + 5 min bono especial por hito de ${newStreak} días de racha`
+          : extraMinutes > 0
+          ? `5 min base + 1 min extra por racha de ${newStreak} días consecutivos`
+          : 'Check-in presencial con código de local (5 min base)',
+        minutes: totalMinutes,
+        timestamp: now,
+        status: 'completed',
+      };
     } else {
       updatedTasks = updatedTasks.map((t) =>
         t.id === taskId ? { ...t, completed: true, claimable: false } : t
       );
       setTasks(updatedTasks);
       updatedUser = creditUserMinutes(minutes);
-    }
 
-    const newTx: Transaction = {
-      id: `tx_${now}`,
-      type: 'task',
-      title: taskTitle,
-      subtitle:
-        taskId === 'task-checkin'
-          ? `Visita presencial verificada en ${STORE_NAME} (Racha: ${updatedUser.streakDays}d)`
-          : `Misión completada (+${minutes}m)`,
-      minutes: minutes,
-      timestamp: now,
-      status: 'completed',
-    };
+      newTx = {
+        id: `tx_${now}`,
+        type: 'task',
+        title: taskTitle,
+        subtitle: `Misión completada (+${minutes}m)`,
+        minutes: minutes,
+        timestamp: now,
+        status: 'completed',
+      };
+    }
 
     const updatedTxs = [newTx, ...stateRef.current.transactions];
     setTransactions(updatedTxs);
@@ -581,6 +634,7 @@ export default function App() {
             user={user}
             tasks={tasks}
             vouchers={vouchers}
+            username={currentUserAccount?.username || user.name}
             lastSpinTimestamp={lastSpinTimestamp}
             lastSpinDate={lastSpinDate}
             lastCheckinTimestamp={lastCheckinTimestamp}

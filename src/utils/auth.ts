@@ -1,5 +1,5 @@
 import { UserAccount, UserProfile, RewardTask, Transaction } from '../types';
-import { createInitialUserProfile, INITIAL_TASKS } from './storage';
+import { createInitialUserProfile, INITIAL_TASKS, calculateUserLevel } from './storage';
 import { getFirebaseServices } from './firebase';
 import { ref, get, set, onValue } from 'firebase/database';
 
@@ -119,13 +119,74 @@ export const fetchUserAccount = async (username: string): Promise<UserAccount | 
 };
 
 /**
+ * Automatically credits +25 minutes to referrer when a new user registers with their referral link
+ */
+export const creditReferralBonus = async (
+  referrerUsername: string,
+  referredUsername: string
+): Promise<boolean> => {
+  const cleanReferrer = sanitizeUsername(referrerUsername);
+  if (!cleanReferrer) return false;
+
+  const referrerAccount = await fetchUserAccount(cleanReferrer);
+  if (!referrerAccount) {
+    console.warn(`Referrer @${cleanReferrer} not found in database.`);
+    return false;
+  }
+
+  const bonusMinutes = 25;
+  const now = Date.now();
+  const prevProfile = referrerAccount.profile;
+  const newBalance = (prevProfile.minutesBalance || 0) + bonusMinutes;
+  const newTotal = (prevProfile.totalEarnedAllTime || 0) + bonusMinutes;
+  const { currentTier, targetMinutes } = calculateUserLevel(newTotal);
+
+  const updatedProfile: UserProfile = {
+    ...prevProfile,
+    minutesBalance: newBalance,
+    totalEarnedAllTime: newTotal,
+    level: currentTier.name,
+    levelTier: currentTier.tier,
+    nextLevelTarget: targetMinutes,
+  };
+
+  const referralTx: Transaction = {
+    id: `tx_${now}_ref_${referredUsername}`,
+    type: 'task',
+    title: 'Bono de Invitación de Amigo (+25 min)',
+    subtitle: `¡Tu amigo @${referredUsername} se ha registrado con tu enlace!`,
+    minutes: bonusMinutes,
+    timestamp: now,
+    status: 'completed',
+  };
+
+  const updatedTasks = (referrerAccount.tasks || INITIAL_TASKS).map((t) =>
+    t.id === 'task-4' ? { ...t, completed: true, claimable: false } : t
+  );
+
+  const updatedTxs = [referralTx, ...(referrerAccount.transactions || [])];
+
+  const updatedAccount: UserAccount = {
+    ...referrerAccount,
+    profile: updatedProfile,
+    tasks: updatedTasks,
+    transactions: updatedTxs,
+  };
+
+  await saveAccountToCloud(updatedAccount);
+  return true;
+};
+
+/**
  * Registers a brand new customer account:
  * Starts with 0 minutes, Level 1, 0 streak days.
+ * If referred by another user, credits the referrer +25 minutes in Firebase.
  */
 export const registerCustomer = async (
   usernameRaw: string,
   passwordRaw: string,
-  displayNameRaw?: string
+  displayNameRaw?: string,
+  referredByRaw?: string
 ): Promise<{ success: boolean; message: string; account?: UserAccount }> => {
   const cleanUsername = sanitizeUsername(usernameRaw);
 
@@ -175,6 +236,18 @@ export const registerCustomer = async (
 
   await saveAccountToCloud(newAccount);
   setActiveSessionUsername(cleanUsername);
+
+  // If registering via referral link, detect referrer and credit +25 minutes in Firebase!
+  if (referredByRaw) {
+    const cleanReferrer = sanitizeUsername(referredByRaw);
+    if (cleanReferrer && cleanReferrer !== cleanUsername) {
+      try {
+        await creditReferralBonus(cleanReferrer, cleanUsername);
+      } catch (err) {
+        console.warn('Error applying referral bonus in Firebase:', err);
+      }
+    }
+  }
 
   return {
     success: true,

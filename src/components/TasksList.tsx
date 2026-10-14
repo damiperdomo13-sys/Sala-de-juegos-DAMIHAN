@@ -15,6 +15,8 @@ import {
   Flame,
   CameraOff,
   RefreshCw,
+  Copy,
+  Check,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { RewardTask } from '../types';
@@ -26,6 +28,7 @@ interface TasksListProps {
   lastCheckinTimestamp: number;
   dailyStoreCode: string;
   userStreak: number;
+  username?: string;
   onClaimTask: (taskId: string, minutes: number, taskTitle: string) => void;
   onResetCheckinCalendar?: () => void;
   onSimulateMissedDay?: () => void;
@@ -36,6 +39,7 @@ export const TasksList: React.FC<TasksListProps> = ({
   lastCheckinTimestamp,
   dailyStoreCode,
   userStreak,
+  username = 'jugador',
   onClaimTask,
 }) => {
   // Check-in calendar state: true if checked in today in local timezone
@@ -49,6 +53,7 @@ export const TasksList: React.FC<TasksListProps> = ({
   const [checkinTab, setCheckinTab] = useState<'code' | 'qr'>('qr');
   const [inputCode, setInputCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [copiedReferral, setCopiedReferral] = useState(false);
 
   // Camera & live QR scanner state
   const [cameraActive, setCameraActive] = useState(false);
@@ -135,8 +140,9 @@ export const TasksList: React.FC<TasksListProps> = ({
         clean.includes('damijan') ||
         clean.includes('sala') ||
         clean.includes('checkin') ||
+        clean.includes('netlify') ||
         clean.includes('SJD-') ||
-        (clean.startsWith('http') && (clean.includes('app') || clean.includes('run.app') || clean.includes('localhost')))
+        (clean.startsWith('http') && (clean.includes('app') || clean.includes('run.app') || clean.includes('localhost') || clean.includes('netlify')))
       ) {
         return true;
       }
@@ -745,40 +751,58 @@ export const TasksList: React.FC<TasksListProps> = ({
 
       {/* Referral Modal */}
       {referralModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
-          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-[#0f172a] border border-amber-500/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl relative">
             <button
-              onClick={() => setReferralModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1"
+              onClick={() => {
+                setReferralModalOpen(false);
+                setCopiedReferral(false);
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mx-auto mb-3 text-amber-400">
+            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mx-auto mb-3 text-amber-400 shadow-md shadow-amber-500/20">
               <Share2 className="w-6 h-6" />
             </div>
 
             <h4 className="text-base font-bold text-white text-center">
               Invitar a un Amigo a {STORE_NAME}
             </h4>
-            <p className="text-xs text-slate-400 mt-1 text-center">
-              Comparte tu enlace de recomendación. Cuando tu amigo juegue en la sala recibirás +25 minutos.
+            <p className="text-xs text-slate-300 mt-1 text-center">
+              Comparte tu enlace de recomendación único. Cuando un nuevo usuario se registre usando tu enlace, el sistema te acreditará automáticamente <strong className="text-emerald-400">+25 minutos</strong> en tu cuenta.
             </p>
 
-            <div className="my-4 p-3 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 text-center select-all">
-              https://saladejuegosdamihan.app/?ref=alex
+            <div className="my-4 p-3 bg-slate-950 rounded-xl border border-slate-800 font-mono text-xs text-emerald-400 text-center break-all select-all">
+              {`https://sala-de-juegos-damihan.netlify.app/?ref=${encodeURIComponent(username || 'jugador')}`}
             </div>
 
             <button
               onClick={() => {
-                soundEffects.playWin();
-                setReferralModalOpen(false);
-                onClaimTask('task-4', 25, 'Invitar a un amigo a jugar');
+                const referralUrl = `https://sala-de-juegos-damihan.netlify.app/?ref=${encodeURIComponent(username || 'jugador')}`;
+                navigator.clipboard?.writeText(referralUrl);
+                soundEffects.playTick(1.1);
+                setCopiedReferral(true);
+                setTimeout(() => setCopiedReferral(false), 2500);
               }}
-              className="w-full py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-amber-400 text-slate-950 shadow-lg cursor-pointer hover:brightness-110 active:scale-[0.98]"
+              className="w-full py-2.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-amber-400 text-slate-950 shadow-lg cursor-pointer hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
             >
-              Copiar Enlace y Reclamar +25 Minutos
+              {copiedReferral ? (
+                <>
+                  <Check className="w-4 h-4 text-slate-950" />
+                  <span>¡Enlace Copiado al Portapapeles!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 text-slate-950" />
+                  <span>Copiar Mi Enlace Único</span>
+                </>
+              )}
             </button>
+            <p className="mt-2.5 text-[10px] text-slate-500 text-center">
+              Los +25 minutos se acreditarán automáticamente en Firebase cuando tu amigo complete su registro.
+            </p>
           </div>
         </div>
       )}
