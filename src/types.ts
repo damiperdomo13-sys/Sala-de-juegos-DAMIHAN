@@ -66,6 +66,8 @@ export interface Transaction {
   timestamp: number;
   voucherCode?: string;
   status: 'completed' | 'pending' | 'cancelled';
+  username?: string;
+  userName?: string;
 }
 
 export interface UserAccount {

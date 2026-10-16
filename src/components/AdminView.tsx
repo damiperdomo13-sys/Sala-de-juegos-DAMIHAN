@@ -20,9 +20,10 @@ import {
   Calendar,
   AlertCircle,
   Lock,
+  Users,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { UserProfile, RedeemVoucher, Transaction } from '../types';
+import { UserProfile, RedeemVoucher, Transaction, UserAccount } from '../types';
 import { TransactionHistory } from './TransactionHistory';
 import { soundEffects } from '../utils/audio';
 import {
@@ -31,11 +32,13 @@ import {
   saveStoredVouchers,
   getDynamicDailyStoreCode,
 } from '../utils/storage';
+import { isCurrentCalendarMonth, getCurrentMonthName } from '../utils/firebase';
 
 interface AdminViewProps {
   user: UserProfile;
   vouchers: RedeemVoucher[];
   transactions: Transaction[];
+  allAccounts?: Record<string, UserAccount>;
   dailyStoreCode: string;
   onConfirmRedemption: (voucher: RedeemVoucher) => void;
   initialSelectedVoucher?: RedeemVoucher | null;
@@ -46,6 +49,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   user,
   vouchers,
   transactions,
+  allAccounts,
   dailyStoreCode,
   onConfirmRedemption,
   initialSelectedVoucher,
@@ -392,10 +396,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setTimeout(() => setCopiedPosterUrl(false), 2000);
   };
 
-  // Calculate admin stats
-  const totalRedeemedToday = transactions
-    .filter((t) => t.type === 'redeem')
+  // Calculate global admin stats
+  const currentMonthName = getCurrentMonthName();
+
+  // "Minutos Canjeados en el Mes": Global sum of all redeemed minutes in the current calendar month
+  const totalRedeemedThisMonth = transactions
+    .filter((t) => t.type === 'redeem' && isCurrentCalendarMonth(t.timestamp))
     .reduce((acc, t) => acc + Math.abs(t.minutes), 0);
+
+  // "Saldo Total de Clientes": Sum of unredeemed minutes across all users in the database
+  const registeredAccountsList = allAccounts ? Object.values(allAccounts) : [];
+  const totalCustomerBalance = registeredAccountsList.length > 0
+    ? registeredAccountsList.reduce((sum, acc) => sum + (acc.profile?.minutesBalance || 0), 0)
+    : user.minutesBalance;
+  const totalUsersCount = registeredAccountsList.length > 0 ? registeredAccountsList.length : 1;
 
   const pendingVouchers = vouchers.filter((v) => v.status === 'pending');
 
@@ -422,83 +436,71 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
 
-        {/* Tab Switcher & Exit Button */}
-        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => {
-                soundEffects.playTick(1.0);
-                setAdminTab('scanner');
-              }}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                adminTab === 'scanner'
-                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Camera className="w-3.5 h-3.5" />
-              <span>Escáner y Caja</span>
-            </button>
-
-            <button
-              onClick={() => {
-                soundEffects.playTick(1.0);
-                setAdminTab('poster');
-              }}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                adminTab === 'poster'
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Cartel & QR del Local</span>
-            </button>
-          </div>
+        {/* Tab Switcher (Primary exit is in top Navbar) */}
+        <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 self-start md:self-auto">
+          <button
+            onClick={() => {
+              soundEffects.playTick(1.0);
+              setAdminTab('scanner');
+            }}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              adminTab === 'scanner'
+                ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Escáner y Caja</span>
+          </button>
 
           <button
             onClick={() => {
               soundEffects.playTick(1.0);
-              onSwitchToClientView?.();
+              setAdminTab('poster');
             }}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-rose-300 hover:text-rose-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-            title="Bloquear panel y volver a la vista del cliente"
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              adminTab === 'poster'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
           >
-            <Lock className="w-3.5 h-3.5 text-rose-400" />
-            <span>Cerrar Sesión Admin</span>
+            <Printer className="w-3.5 h-3.5" />
+            <span>Cartel & QR del Local</span>
           </button>
         </div>
       </div>
 
       {adminTab === 'scanner' ? (
         <>
-          {/* Admin KPI Header Cards */}
+          {/* Admin KPI Header Cards: Global Month and Global Balances */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-[#0b101b] rounded-2xl p-4 border border-slate-800 shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium">Minutos Canjeados Hoy</span>
+                <span className="text-xs text-slate-400 font-medium">Minutos Canjeados en el Mes</span>
                 <div className="w-8 h-8 rounded-lg bg-cyan-950/50 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
                   <TrendingDown className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
-                <span className="text-2xl font-black text-white font-mono">{totalRedeemedToday}</span>
-                <span className="text-xs text-slate-400">minutos totales descontados en caja</span>
+                <span className="text-2xl font-black text-white font-mono">{totalRedeemedThisMonth}</span>
+                <span className="text-xs text-slate-400">minutos globales en {currentMonthName}</span>
               </div>
             </div>
 
             <div className="bg-[#0b101b] rounded-2xl p-4 border border-slate-800 shadow-md">
               <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-400 font-medium">Saldo Cliente Actual</span>
+                <span className="text-xs text-slate-400 font-medium">Saldo Total de Clientes</span>
                 <div className="w-8 h-8 rounded-lg bg-emerald-950/50 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
-                  <User className="w-4 h-4" />
+                  <Users className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-black text-emerald-400 font-mono">
-                  {user.minutesBalance}
+                  {totalCustomerBalance}
                 </span>
-                <span className="text-xs text-slate-400">minutos acumulados en cuenta</span>
+                <span className="text-xs text-slate-400">
+                  minutos no canjeados ({totalUsersCount} {totalUsersCount === 1 ? 'cliente' : 'clientes'})
+                </span>
               </div>
             </div>
           </div>
@@ -793,7 +795,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           )}
 
           {/* Transaction History Section at Bottom */}
-          <TransactionHistory transactions={transactions} />
+          <TransactionHistory transactions={transactions} isGlobal={true} />
         </>
       ) : (
         /* Tab 2: Cartel Imprimible & Generador de QR para el Local */

@@ -1,6 +1,6 @@
 import { UserAccount, UserProfile, RewardTask, Transaction } from '../types';
 import { createInitialUserProfile, INITIAL_TASKS, calculateUserLevel } from './storage';
-import { getFirebaseServices } from './firebase';
+import { getFirebaseServices, recordGlobalTransaction } from './firebase';
 import { ref, get, set, onValue } from 'firebase/database';
 
 const ACCOUNTS_STORAGE_KEY = 'damihan_registered_accounts_v1';
@@ -36,7 +36,7 @@ export const hashPassword = async (password: string): Promise<string> => {
  * Normalizes username to safe alphanumeric string for database keys
  */
 export const sanitizeUsername = (username: string): string => {
-  return username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+  return username.trim().toLowerCase().replace(/^@/, '').replace(/[^a-z0-9_-]/g, '_');
 };
 
 /**
@@ -152,12 +152,14 @@ export const creditReferralBonus = async (
 
   const referralTx: Transaction = {
     id: `tx_${now}_ref_${referredUsername}`,
-    type: 'task',
+    type: 'bonus',
     title: 'Bono de Referido (+20 min)',
-    subtitle: `¡Tu amigo @${referredUsername} visitó la sala e hizo su primer check-in presencial!`,
+    subtitle: `Bono por invitar a @${referredUsername} (primer check-in presencial en sala)`,
     minutes: bonusMinutes,
     timestamp: now,
     status: 'completed',
+    username: cleanReferrer,
+    userName: referrerAccount.displayName || cleanReferrer,
   };
 
   const updatedTasks = (referrerAccount.tasks || INITIAL_TASKS).map((t) =>
@@ -174,6 +176,7 @@ export const creditReferralBonus = async (
   };
 
   await saveAccountToCloud(updatedAccount);
+  await recordGlobalTransaction(referralTx);
   return true;
 };
 
@@ -393,3 +396,70 @@ export const subscribeToCustomerCloud = (
     return () => {};
   }
 };
+
+/**
+ * Fetches all customer accounts across Firebase and local cache
+ */
+export const fetchAllAccounts = async (): Promise<Record<string, UserAccount>> => {
+  const localAccounts = getLocalAccounts();
+  const { db } = getFirebaseServices();
+  if (!db) return localAccounts;
+
+  try {
+    const usersRef = ref(db, 'sala_damihan/users');
+    const snapshot = await get(usersRef);
+    if (snapshot.exists()) {
+      const cloudUsers = snapshot.val() as Record<string, UserAccount>;
+      if (cloudUsers && typeof cloudUsers === 'object') {
+        return { ...localAccounts, ...cloudUsers };
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching all accounts from Firebase:', err);
+  }
+
+  return localAccounts;
+};
+
+/**
+ * Subscribes to real-time changes across ALL customer accounts in Firebase
+ */
+export const subscribeToAllAccounts = (
+  onUpdate: (accounts: Record<string, UserAccount>) => void
+): (() => void) => {
+  const { db } = getFirebaseServices();
+  if (!db) {
+    onUpdate(getLocalAccounts());
+    return () => {};
+  }
+
+  try {
+    const usersRef = ref(db, 'sala_damihan/users');
+    const unsubscribe = onValue(
+      usersRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val() as Record<string, UserAccount>;
+          if (val && typeof val === 'object') {
+            const local = getLocalAccounts();
+            const merged = { ...local, ...val };
+            onUpdate(merged);
+            return;
+          }
+        }
+        onUpdate(getLocalAccounts());
+      },
+      (error) => {
+        console.warn('All accounts realtime listener error:', error);
+        onUpdate(getLocalAccounts());
+      }
+    );
+
+    return () => unsubscribe();
+  } catch (err) {
+    console.warn('Failed to attach all accounts listener:', err);
+    onUpdate(getLocalAccounts());
+    return () => {};
+  }
+};
+

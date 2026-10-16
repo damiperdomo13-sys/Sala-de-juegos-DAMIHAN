@@ -71,10 +71,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onExitAdminView();
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+              title="Salir del panel de administrador"
             >
               <Lock className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden sm:inline">Cerrar Sesión Admin</span>
-              <span className="sm:hidden">Salir Admin</span>
+              <span>Salir Admin</span>
             </button>
           ) : isLoggedIn ? (
             /* Logged in customer badge */

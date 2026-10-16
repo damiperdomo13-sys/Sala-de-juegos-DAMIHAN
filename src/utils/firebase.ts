@@ -370,3 +370,113 @@ export const confirmCloudVoucher = async (
     return false;
   }
 };
+
+/**
+ * Calendar Month Helpers for Transaction History and Admin Metrics
+ */
+export const isCurrentCalendarMonth = (
+  timestamp: number,
+  refDate: Date = new Date()
+): boolean => {
+  if (!timestamp) return false;
+  const d = new Date(timestamp);
+  return (
+    d.getFullYear() === refDate.getFullYear() &&
+    d.getMonth() === refDate.getMonth()
+  );
+};
+
+export const getCurrentMonthName = (refDate: Date = new Date()): string => {
+  const name = refDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
+
+const GLOBAL_TX_STORAGE_KEY = 'damihan_global_transactions_v1';
+
+export const getStoredGlobalTransactions = (): Transaction[] => {
+  try {
+    const raw = localStorage.getItem(GLOBAL_TX_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    // Ignore
+  }
+  return [];
+};
+
+export const saveStoredGlobalTransactions = (txs: Transaction[]) => {
+  try {
+    localStorage.setItem(GLOBAL_TX_STORAGE_KEY, JSON.stringify(txs.slice(0, 1000)));
+  } catch {
+    // Ignore
+  }
+};
+
+/**
+ * Centrally records a transaction in Firebase Realtime Database
+ * under sala_damihan/global_transactions/{txId} and local storage backup
+ */
+export const recordGlobalTransaction = async (tx: Transaction): Promise<boolean> => {
+  try {
+    const current = getStoredGlobalTransactions();
+    const filtered = current.filter((t) => t.id !== tx.id);
+    saveStoredGlobalTransactions([tx, ...filtered]);
+  } catch {
+    // Ignore
+  }
+
+  const { db } = getFirebaseServices();
+  if (!db) return false;
+
+  try {
+    const txRef = ref(db, `sala_damihan/global_transactions/${tx.id}`);
+    await set(txRef, tx);
+    return true;
+  } catch (err) {
+    console.warn('Error recording global transaction in Firebase:', err);
+    return false;
+  }
+};
+
+/**
+ * Real-time listener for all transactions centrally recorded in Firebase
+ */
+export const subscribeToGlobalTransactions = (
+  onUpdate: (txs: Transaction[]) => void
+): (() => void) => {
+  const { db } = getFirebaseServices();
+  if (!db) {
+    onUpdate(getStoredGlobalTransactions());
+    return () => {};
+  }
+
+  try {
+    const txsRef = ref(db, 'sala_damihan/global_transactions');
+    const unsubscribe = onValue(
+      txsRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          if (val && typeof val === 'object') {
+            const list = Object.values(val) as Transaction[];
+            list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            saveStoredGlobalTransactions(list);
+            onUpdate(list);
+            return;
+          }
+        }
+        onUpdate(getStoredGlobalTransactions());
+      },
+      (err) => {
+        console.warn('Error listening to global transactions:', err);
+        onUpdate(getStoredGlobalTransactions());
+      }
+    );
+
+    return () => unsubscribe();
+  } catch (err) {
+    console.warn('Failed to attach global transactions listener:', err);
+    onUpdate(getStoredGlobalTransactions());
+    return () => {};
+  }
+};
+

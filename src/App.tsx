@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import {
   UserProfile,
@@ -42,6 +42,9 @@ import {
   syncVoucherToCloud,
   subscribeToCloudVouchers,
   confirmCloudVoucher,
+  recordGlobalTransaction,
+  subscribeToGlobalTransactions,
+  getStoredGlobalTransactions,
 } from './utils/firebase';
 import {
   getActiveSessionUsername,
@@ -50,6 +53,8 @@ import {
   saveAccountToCloud,
   subscribeToCustomerCloud,
   creditReferralBonus,
+  subscribeToAllAccounts,
+  getLocalAccounts,
 } from './utils/auth';
 import { Navbar } from './components/Navbar';
 import { ClientView } from './components/ClientView';
@@ -75,6 +80,10 @@ export default function App() {
   const [lastSpinTimestamp, setLastSpinTimestamp] = useState<number>(loadLastSpinTimestamp);
   const [lastSpinDate, setLastSpinDate] = useState<string>(loadLastSpinDate);
   const [lastCheckinTimestamp, setLastCheckinTimestamp] = useState<number>(loadLastCheckinTimestamp);
+
+  // Global Accounts & Transactions for Admin & Consolidated Metrics
+  const [allAccounts, setAllAccounts] = useState<Record<string, UserAccount>>(getLocalAccounts);
+  const [globalTransactions, setGlobalTransactions] = useState<Transaction[]>(getStoredGlobalTransactions);
 
   // Cloud Notification Toast
   const [cloudToast, setCloudToast] = useState<{
@@ -173,6 +182,70 @@ export default function App() {
 
     return () => unsubscribeVouchers();
   }, []);
+
+  // Subscribe to all customer accounts in Firebase
+  useEffect(() => {
+    const unsubscribeAllAccounts = subscribeToAllAccounts((accountsMap) => {
+      if (accountsMap && Object.keys(accountsMap).length > 0) {
+        setAllAccounts(accountsMap);
+      }
+    });
+
+    return () => unsubscribeAllAccounts();
+  }, []);
+
+  // Subscribe to central global transactions in Firebase
+  useEffect(() => {
+    const unsubscribeGlobalTxs = subscribeToGlobalTransactions((cloudTxs) => {
+      if (cloudTxs && cloudTxs.length > 0) {
+        setGlobalTransactions(cloudTxs);
+      }
+    });
+
+    return () => unsubscribeGlobalTxs();
+  }, []);
+
+  // Consolidate global transactions from: central collection, each registered user account, and active session
+  const mergedGlobalTransactions = useMemo(() => {
+    const map = new Map<string, Transaction>();
+
+    // 1. Central global transactions
+    globalTransactions.forEach((tx) => {
+      if (tx && tx.id) map.set(tx.id, tx);
+    });
+
+    // 2. All user accounts transactions
+    Object.values(allAccounts).forEach((acc) => {
+      if (acc && acc.transactions) {
+        acc.transactions.forEach((tx) => {
+          if (tx && tx.id) {
+            const existing = map.get(tx.id);
+            map.set(tx.id, {
+              ...tx,
+              username: tx.username || existing?.username || acc.username,
+              userName: tx.userName || existing?.userName || acc.displayName || acc.username,
+            });
+          }
+        });
+      }
+    });
+
+    // 3. Current active session transactions
+    transactions.forEach((tx) => {
+      if (tx && tx.id) {
+        const existing = map.get(tx.id);
+        map.set(tx.id, {
+          ...tx,
+          username: tx.username || existing?.username || currentUserAccount?.username || user.name,
+          userName: tx.userName || existing?.userName || currentUserAccount?.displayName || user.name,
+        });
+      }
+    });
+
+    const list = Array.from(map.values());
+    list.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    return list;
+  }, [globalTransactions, allAccounts, transactions, currentUserAccount?.username, currentUserAccount?.displayName, user.name]);
 
   // Helper to apply user account data to local state
   const applyUserAccount = (account: UserAccount, persistSession = true) => {
@@ -369,6 +442,8 @@ export default function App() {
 
     let updatedUser = stateRef.current.user;
     let newTx: Transaction;
+    const clientUser = stateRef.current.currentUserAccount?.username || user.name;
+    const clientDisplayName = stateRef.current.currentUserAccount?.displayName || user.name;
 
     if (minutesWon > 0) {
       updatedUser = creditUserMinutes(minutesWon);
@@ -380,6 +455,8 @@ export default function App() {
         minutes: minutesWon,
         timestamp: now,
         status: 'completed',
+        username: clientUser,
+        userName: clientDisplayName,
       };
     } else {
       newTx = {
@@ -390,9 +467,12 @@ export default function App() {
         minutes: 0,
         timestamp: now,
         status: 'completed',
+        username: clientUser,
+        userName: clientDisplayName,
       };
     }
 
+    recordGlobalTransaction(newTx);
     const updatedTxs = [newTx, ...stateRef.current.transactions];
     setTransactions(updatedTxs);
 
@@ -537,20 +617,29 @@ export default function App() {
           });
       }
 
+      const clientUser = stateRef.current.currentUserAccount?.username || user.name;
+      const clientDisplayName = stateRef.current.currentUserAccount?.displayName || user.name;
+
       newTx = {
         id: `tx_${now}`,
         type: 'task',
-        title: isMilestone ? `Hito de Racha Día ${newStreak}` : 'Visita Diaria al Local',
+        title: isMilestone ? `Hito de Racha Día ${newStreak} · Check-in Presencial` : 'Check-in Presencial / Bono de Racha',
         subtitle: isMilestone
           ? `5 min base + 5 min bono especial por hito de ${newStreak} días de racha`
           : extraMinutes > 0
           ? `5 min base + 1 min extra por racha de ${newStreak} días consecutivos`
-          : 'Check-in presencial con código de local (5 min base)',
+          : 'Check-in presencial con código del cartel físico (5 min base)',
         minutes: totalMinutes,
         timestamp: now,
         status: 'completed',
+        username: clientUser,
+        userName: clientDisplayName,
       };
+      recordGlobalTransaction(newTx);
     } else {
+      const clientUser = stateRef.current.currentUserAccount?.username || user.name;
+      const clientDisplayName = stateRef.current.currentUserAccount?.displayName || user.name;
+
       if (taskId !== 'task-4') {
         updatedTasks = updatedTasks.map((t) =>
           t.id === taskId ? { ...t, completed: true, claimable: false } : t
@@ -567,7 +656,10 @@ export default function App() {
         minutes: minutes,
         timestamp: now,
         status: 'completed',
+        username: clientUser,
+        userName: clientDisplayName,
       };
+      recordGlobalTransaction(newTx);
     }
 
     const updatedTxs = [newTx, ...stateRef.current.transactions];
@@ -633,7 +725,10 @@ export default function App() {
       timestamp: now,
       voucherCode: voucher.code,
       status: 'completed',
+      username: voucher.userKey || voucher.userName,
+      userName: voucher.userName,
     };
+    recordGlobalTransaction(newTx);
     const updatedTxs = [newTx, ...stateRef.current.transactions];
     setTransactions(updatedTxs);
 
@@ -702,7 +797,8 @@ export default function App() {
           <AdminView
             user={user}
             vouchers={vouchers}
-            transactions={transactions}
+            transactions={mergedGlobalTransactions}
+            allAccounts={allAccounts}
             dailyStoreCode={dailyStoreCode}
             onConfirmRedemption={handleConfirmRedemption}
             onSwitchToClientView={handleExitAdminView}
