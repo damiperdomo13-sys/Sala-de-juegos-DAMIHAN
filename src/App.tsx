@@ -18,7 +18,6 @@ import {
   saveStoredVouchers,
   loadLastSpinTimestamp,
   saveLastSpinTimestamp,
-  clearLastSpinTimestamp,
   loadLastSpinDate,
   saveLastSpinDate,
   getTodayDateString,
@@ -484,22 +483,6 @@ export default function App() {
     });
   };
 
-  // Test helper: Force / simulate daily roulette reset immediately for testing probabilities & mechanics
-  const handleResetRouletteCooldown = () => {
-    clearLastSpinTimestamp();
-    setLastSpinTimestamp(0);
-    setLastSpinDate('');
-    soundEffects.playTick(1.2);
-    setCloudToast({
-      message: '🔄 [Modo Prueba] Giro de ruleta reiniciado. ¡Puedes volver a girar inmediatamente!',
-      type: 'info',
-    });
-    syncAccountChanges({
-      lastSpinTimestamp: 0,
-      lastSpinDate: '',
-    });
-  };
-
   // Task claim handler
   const handleClaimTask = (taskId: string, minutes: number, taskTitle: string) => {
     const now = Date.now();
@@ -791,7 +774,6 @@ export default function App() {
             onClaimTask={handleClaimTask}
             onCreateVoucher={handleCreateVoucher}
             onOpenAdminAccess={handleOpenAdminAccess}
-            onResetRouletteCooldown={handleResetRouletteCooldown}
           />
         ) : (
           <AdminView

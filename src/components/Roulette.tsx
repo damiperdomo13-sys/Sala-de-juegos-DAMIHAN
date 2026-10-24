@@ -15,14 +15,12 @@ interface RouletteProps {
   lastSpinTimestamp: number;
   lastSpinDate?: string;
   onSpinWin: (minutes: number) => void;
-  onResetCooldown?: () => void;
 }
 
 export const Roulette: React.FC<RouletteProps> = ({
   lastSpinTimestamp,
   lastSpinDate,
   onSpinWin,
-  onResetCooldown,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -359,22 +357,6 @@ export const Roulette: React.FC<RouletteProps> = ({
               </>
             )}
           </button>
-
-          {/* Botón auxiliar de prueba: Simular o forzar reinicio diario de ruleta */}
-          {onResetCooldown && (
-            <button
-              type="button"
-              onClick={() => {
-                soundEffects.playTick(1.2);
-                onResetCooldown();
-              }}
-              className="w-full py-2 px-3 rounded-xl text-xs font-mono text-amber-300 bg-amber-950/50 hover:bg-amber-900/70 border border-dashed border-amber-600/70 hover:border-amber-400 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-              title="Herramienta de prueba: Permite forzar el reinicio diario del giro para probar el funcionamiento y probabilidades de manera inmediata sin esperar 24 horas"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
-              <span>Simular Reinicio Diario (Modo Prueba)</span>
-            </button>
-          )}
         </div>
       </div>
 
